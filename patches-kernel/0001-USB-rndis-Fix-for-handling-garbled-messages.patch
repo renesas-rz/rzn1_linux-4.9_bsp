@@ -1,0 +1,31 @@
+From 77b4513f892ae10b301f43c322f15b93ce3cb93e Mon Sep 17 00:00:00 2001
+From: Michel Pollet <michel.pollet@bp.renesas.com>
+Date: Wed, 23 Sep 2015 10:51:17 +0100
+Subject: [PATCH] USB: rndis: Fix for handling garbled messages
+
+A message can be forged to crash the stack; here we make sure we don't
+completely break the system if this occurs
+
+Signed-off-by: Michel Pollet <michel.pollet@bp.renesas.com>
+---
+ drivers/usb/gadget/function/rndis.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/usb/gadget/function/rndis.c b/drivers/usb/gadget/function/rndis.c
+index ab6ac1b..20885af 100644
+--- a/drivers/usb/gadget/function/rndis.c
++++ b/drivers/usb/gadget/function/rndis.c
+@@ -856,6 +856,10 @@ int rndis_msg_parser(struct rndis_params *params, u8 *buf)
+ 		 */
+ 		pr_warning("%s: unknown RNDIS message 0x%08X len %d\n",
+ 			__func__, MsgType, MsgLength);
++		/* In case of garbled message, MsgLenght can be 'negative'
++		 * or stupidly large, lets try not to kill the board */
++		if (MsgLength > 16)
++			MsgLength = 16;
+ 		print_hex_dump_bytes(__func__, DUMP_PREFIX_OFFSET,
+ 				     buf, MsgLength);
+ 		break;
+-- 
+2.7.4
+

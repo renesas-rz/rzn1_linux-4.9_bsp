@@ -1,0 +1,41 @@
+From 0b9448820c398eaba295de24449ce6fe2f33023a Mon Sep 17 00:00:00 2001
+From: Phil Edworthy <phil.edworthy@renesas.com>
+Date: Wed, 27 Apr 2016 08:23:59 +0100
+Subject: [PATCH] dma: dw: Handle case when peripheral is the flow controller
+
+If the peripheral is the flow controller, the transfer must not
+be split into multiple blocks. The DMAC can support any length
+transfers in this mode of operation.
+
+Signed-off-by: Phil Edworthy <phil.edworthy@renesas.com>
+---
+ drivers/dma/dw/core.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/dma/dw/core.c b/drivers/dma/dw/core.c
+index c2c0a61..e1b3ed9 100644
+--- a/drivers/dma/dw/core.c
++++ b/drivers/dma/dw/core.c
+@@ -790,7 +790,8 @@ dwc_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
+ 			lli_write(desc, sar, mem);
+ 			lli_write(desc, dar, reg);
+ 			lli_write(desc, ctllo, ctllo | DWC_CTLL_SRC_WIDTH(mem_width));
+-			if ((len >> mem_width) > dwc->block_size) {
++			if (((len >> mem_width) > dwc->block_size) &&
++			    !sconfig->device_fc) {
+ 				dlen = dwc->block_size << mem_width;
+ 				mem += dlen;
+ 				len -= dlen;
+@@ -843,7 +844,8 @@ dwc_prep_slave_sg(struct dma_chan *chan, struct scatterlist *sgl,
+ 			lli_write(desc, sar, reg);
+ 			lli_write(desc, dar, mem);
+ 			lli_write(desc, ctllo, ctllo | DWC_CTLL_DST_WIDTH(mem_width));
+-			if ((len >> reg_width) > dwc->block_size) {
++			if (((len >> reg_width) > dwc->block_size) &&
++			    !sconfig->device_fc) {
+ 				dlen = dwc->block_size << reg_width;
+ 				mem += dlen;
+ 				len -= dlen;
+-- 
+2.7.4
+

@@ -1,0 +1,44 @@
+From 507488955649389fe445bede28ade9e6c43d44d4 Mon Sep 17 00:00:00 2001
+From: Phil Edworthy <phil.edworthy@renesas.com>
+Date: Mon, 7 Mar 2016 12:26:46 +0000
+Subject: [PATCH] stmmac: Use unique MDIO bus names
+
+Signed-off-by: Phil Edworthy <phil.edworthy@renesas.com>
+---
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 4 ++--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index caf069a..1a15c60 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -838,8 +838,8 @@ static int stmmac_init_phy(struct net_device *dev)
+ 		phydev = of_phy_connect(dev, priv->plat->phy_node,
+ 					&stmmac_adjust_link, 0, interface);
+ 	} else {
+-		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
+-			 priv->plat->bus_id);
++		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%s-%x",
++			 dev->name, priv->plat->bus_id);
+ 
+ 		snprintf(phy_id_fmt, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, bus_id,
+ 			 priv->plat->phy_addr);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+index ec29585..c5e6455 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_mdio.c
+@@ -314,8 +314,8 @@ int stmmac_mdio_register(struct net_device *ndev)
+ 	}
+ 
+ 	new_bus->reset = &stmmac_mdio_reset;
+-	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%x",
+-		 new_bus->name, priv->plat->bus_id);
++	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%s-%x",
++		 new_bus->name, ndev->name, priv->plat->bus_id);
+ 	new_bus->priv = ndev;
+ 	new_bus->phy_mask = mdio_bus_data->phy_mask;
+ 	new_bus->parent = priv->device;
+-- 
+2.7.4
+

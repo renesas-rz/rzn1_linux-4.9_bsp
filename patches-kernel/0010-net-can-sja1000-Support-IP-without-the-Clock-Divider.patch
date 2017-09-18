@@ -1,0 +1,86 @@
+From 2fc57fea704863b559f0d1cba12684f364deb690 Mon Sep 17 00:00:00 2001
+From: Phil Edworthy <phil.edworthy@renesas.com>
+Date: Thu, 25 Jun 2015 11:01:06 +0100
+Subject: [PATCH] net: can: sja1000: Support IP without the Clock Divider
+ Register (CDR)
+
+Signed-off-by: Phil Edworthy <phil.edworthy@renesas.com>
+---
+ Documentation/devicetree/bindings/net/can/sja1000.txt |  2 ++
+ drivers/net/can/sja1000/sja1000.c                     | 12 ++++++++----
+ drivers/net/can/sja1000/sja1000.h                     |  1 +
+ drivers/net/can/sja1000/sja1000_platform.c            |  3 +++
+ 4 files changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/can/sja1000.txt b/Documentation/devicetree/bindings/net/can/sja1000.txt
+index ac3160e..a342c86 100644
+--- a/Documentation/devicetree/bindings/net/can/sja1000.txt
++++ b/Documentation/devicetree/bindings/net/can/sja1000.txt
+@@ -44,6 +44,8 @@ Optional properties:
+ 
+ - nxp,no-comparator-bypass : Allows to disable the CAN input comparator.
+ 
++- nxp,no-cdr : Indicates that the Clock Divider Register is not present.
++
+ For further information, please have a look to the SJA1000 data sheet.
+ 
+ Examples:
+diff --git a/drivers/net/can/sja1000/sja1000.c b/drivers/net/can/sja1000/sja1000.c
+index 9f10779..2f9e8bd 100644
+--- a/drivers/net/can/sja1000/sja1000.c
++++ b/drivers/net/can/sja1000/sja1000.c
+@@ -184,8 +184,10 @@ static void chipset_init(struct net_device *dev)
+ {
+ 	struct sja1000_priv *priv = netdev_priv(dev);
+ 
+-	/* set clock divider and output control register */
+-	priv->write_reg(priv, SJA1000_CDR, priv->cdr | CDR_PELICAN);
++	if (!priv->cdr_missing) {
++		/* set clock divider and output control register */
++		priv->write_reg(priv, SJA1000_CDR, priv->cdr | CDR_PELICAN);
++	}
+ 
+ 	/* set acceptance filter (accept all) */
+ 	priv->write_reg(priv, SJA1000_ACCC0, 0x00);
+@@ -210,8 +212,10 @@ static void sja1000_start(struct net_device *dev)
+ 		set_reset_mode(dev);
+ 
+ 	/* Initialize chip if uninitialized at this stage */
+-	if (!(priv->read_reg(priv, SJA1000_CDR) & CDR_PELICAN))
+-		chipset_init(dev);
++	if (!priv->cdr_missing) {
++		if (!(priv->read_reg(priv, SJA1000_CDR) & CDR_PELICAN))
++			chipset_init(dev);
++	}
+ 
+ 	/* Clear error counters and error code capture */
+ 	priv->write_reg(priv, SJA1000_TXERR, 0x0);
+diff --git a/drivers/net/can/sja1000/sja1000.h b/drivers/net/can/sja1000/sja1000.h
+index 9d46398..19acad5 100644
+--- a/drivers/net/can/sja1000/sja1000.h
++++ b/drivers/net/can/sja1000/sja1000.h
+@@ -170,6 +170,7 @@ struct sja1000_priv {
+ 	u16 flags;		/* custom mode flags */
+ 	u8 ocr;			/* output control register */
+ 	u8 cdr;			/* clock divider register */
++	u8 cdr_missing;		/* missing clock divider register */
+ };
+ 
+ struct net_device *alloc_sja1000dev(int sizeof_priv);
+diff --git a/drivers/net/can/sja1000/sja1000_platform.c b/drivers/net/can/sja1000/sja1000_platform.c
+index dc9c6db..b07e484 100644
+--- a/drivers/net/can/sja1000/sja1000_platform.c
++++ b/drivers/net/can/sja1000/sja1000_platform.c
+@@ -199,6 +199,9 @@ static void sp_populate_of(struct sja1000_priv *priv, struct device_node *of)
+ 
+ 	if (!of_property_read_bool(of, "nxp,no-comparator-bypass"))
+ 		priv->cdr |= CDR_CBP; /* default */
++
++	if (of_property_read_bool(of, "nxp,no-cdr"))
++		priv->cdr_missing = 1;
+ }
+ 
+ static struct sja1000_of_data technologic_data = {
+-- 
+2.7.4
+

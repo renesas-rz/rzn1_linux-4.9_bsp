@@ -1,0 +1,275 @@
+From 7b8fa2962ec1be839e9e490df5c13c0af00fa690 Mon Sep 17 00:00:00 2001
+From: Phil Edworthy <phil.edworthy@renesas.com>
+Date: Thu, 20 Aug 2015 18:49:35 +0100
+Subject: [PATCH] rzn1: bus: MSEBI Master driver
+
+The MSEBI (Medium Speed External Bus Interface) allows you connect
+to async or sync devices, using 8, 16 or 32 bit data widths and the
+timings are configurable per CS.
+
+Since there are a lot of ways to set this up, we don't do anything
+clever, just allow the timing and config register values to be
+specified in the DT.
+
+Signed-off-by: Phil Edworthy <phil.edworthy@renesas.com>
+---
+ .../devicetree/bindings/bus/renesas,msebi.txt      |  66 ++++++++++
+ drivers/bus/Kconfig                                |   8 ++
+ drivers/bus/Makefile                               |   1 +
+ drivers/bus/rzn1-msebi.c                           | 140 +++++++++++++++++++++
+ 4 files changed, 215 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/bus/renesas,msebi.txt
+ create mode 100644 drivers/bus/rzn1-msebi.c
+
+diff --git a/Documentation/devicetree/bindings/bus/renesas,msebi.txt b/Documentation/devicetree/bindings/bus/renesas,msebi.txt
+new file mode 100644
+index 0000000..f294490
+--- /dev/null
++++ b/Documentation/devicetree/bindings/bus/renesas,msebi.txt
+@@ -0,0 +1,66 @@
++Device tree bindings for Renesas Medium Speed External Bus Interface (MSEBI)
++found on the RZ/N1 device.
++
++The actual devices are instantiated from the child nodes of a MSEBI node.
++
++Required properties:
++
++ - compatible:		Should contain "renesas,rznr-msebi"
++- reg:			A resource specifier for the register space
++			(see the example below)
++ - clocks:		the clock, see the example below.
++ - #address-cells:	Must be set to 2 to allow memory address translation
++ - #size-cells:		Must be set to 1 to allow CS address passing
++ - ranges:		Must be set up to reflect the memory layout with four
++			integer values for each chip-select line in use:
++			   <cs-number> 0 <physical address of mapping> <size>
++
++ - renesas,msebi-config: The value to write into the CONFIG register.
++
++ - renesas,msebi-config-dirbuf: The value to write into the CONFIG_DIRBUF
++			register.
++ 
++Timing property for child nodes.
++
++ - renesas,msebi-cs-timing: The timing array, contains timing values for the
++			child node. We can get the CS index from the child
++			node's "reg" property. It consists of 3 registers values
++			that correspond to:
++			CYCLESIZE_CSn register value.
++			SETUPHOLD_CSn register value.
++			CONFIG_CSn register value.
++
++Example for an RZ/N1 device, with two 8-bit synchronous memories attached:
++
++	msebi: msebim: memory-controller@RZN1_MSEBI_M0_BASE {
++		compatible = "renesas,rzn1-msebi";
++		#address-cells = <2>;
++		#size-cells = <1>;
++		reg = <RZN1_MSEBI_M0_BASE RZN1_MSEBI_M0_SIZE>;
++		clocks = <&clk_fw_msebi_m>;
++		ranges = <
++			0 0 0x60000000 0x08000000
++			1 0 0x68000000 0x08000000
++			2 0 0x70000000 0x08000000
++			3 0 0x78000000 0x08000000
++		>;
++		renesas,msebi-config = <0x00000490>;
++		renesas,msebi-config-dirbuf = <0x00000000>;
++		interrupts = <GIC_SPI RZN1_IRQ_MSEBIM IRQ_TYPE_LEVEL_HIGH>;
++		status = "okay";
++
++		cs0: cs0@0,0 {
++			#address-cells = <1>;
++			#size-cells = <1>;
++			reg = <0 0x00000000 0x04000000>;
++			// Synchronous 8-bit
++			renesas,msebi-cs-timing = <0x00000000 0x00010001 0x00000005>;
++		};
++		cs1: cs1@0,0 {
++			#address-cells = <1>;
++			#size-cells = <1>;
++			reg = <1 0x00000000 0x04000000>;
++			// Synchronous 8-bit
++			renesas,msebi-cs-timing = <0x00000000 0x00010001 0x00000005>;
++		};
++	};
+diff --git a/drivers/bus/Kconfig b/drivers/bus/Kconfig
+index 7875105..14e48d9 100644
+--- a/drivers/bus/Kconfig
++++ b/drivers/bus/Kconfig
+@@ -85,6 +85,14 @@ config MIPS_CDMM
+ 	  platform code needs to implement mips_cdmm_phys_base() (see
+ 	  asm/cdmm.h).
+ 
++config RZN1_MSEBI
++	bool "MSEBI driver"
++	depends on ARCH_RZN1
++	help
++	  Driver for MSEBI Master controller.
++	  The MSEBI (Medium Speed External Bus Interface) is programmable bus.
++	  You can attach many different devices on it, such as NOR, onenand.
++
+ config MVEBU_MBUS
+ 	bool
+ 	depends on PLAT_ORION
+diff --git a/drivers/bus/Makefile b/drivers/bus/Makefile
+index c6cfa6b..21d9e10 100644
+--- a/drivers/bus/Makefile
++++ b/drivers/bus/Makefile
+@@ -10,6 +10,7 @@ obj-$(CONFIG_BRCMSTB_GISB_ARB)	+= brcmstb_gisb.o
+ obj-$(CONFIG_IMX_WEIM)		+= imx-weim.o
+ obj-$(CONFIG_MIPS_CDMM)		+= mips_cdmm.o
+ obj-$(CONFIG_MVEBU_MBUS) 	+= mvebu-mbus.o
++obj-$(CONFIG_RZN1_MSEBI) 	+= rzn1-msebi.o
+ 
+ # Interconnect bus driver for OMAP SoCs.
+ obj-$(CONFIG_OMAP_INTERCONNECT)	+= omap_l3_smx.o omap_l3_noc.o
+diff --git a/drivers/bus/rzn1-msebi.c b/drivers/bus/rzn1-msebi.c
+new file mode 100644
+index 0000000..fbc3b36
+--- /dev/null
++++ b/drivers/bus/rzn1-msebi.c
+@@ -0,0 +1,140 @@
++/*
++ * MSEBI driver for Renesas RZ/N1 chips
++ * Copyright (C) 2015 Renesas Electronics Europe Ltd.
++ *
++ * Based on imx-weim driver
++ * Copyright (C) 2013 Freescale Semiconductor, Inc.
++ *
++ * This file is licensed under the terms of the GNU General Public
++ * License version 2. This program is licensed "as is" without any
++ * warranty of any kind, whether express or implied.
++ */
++#include <linux/module.h>
++#include <linux/clk.h>
++#include <linux/io.h>
++#include <linux/of_device.h>
++
++#define MSEBI_MAX_CS 4
++#define MSEBI_NR_TIMING_REGS 3
++#define MSEBI_CS_STRIDE 0x100
++#define MSEBI_CS_CYCLESIZE_REG	0x00
++#define MSEBI_CS_SETUPHOLD_REG	0x04
++#define MSEBI_CS_CONFIG_REG	0x60
++#define MSEBI_CONFIG_REG	0x800
++#define MSEBI_CONFIG_DIRBUF_REG	0x804
++
++static const struct of_device_id msebi_id_table[] = {
++	{ .compatible = "renesas,rzn1-msebi", },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, msebi_id_table);
++
++/* Parse and set the timing for this device. */
++static int __init msebi_timing_setup(struct device_node *np, void __iomem *base)
++{
++	u32 cs_idx, value[MSEBI_NR_TIMING_REGS];
++	int ret;
++
++	/* get the CS index from this child node's "reg" property. */
++	ret = of_property_read_u32(np, "reg", &cs_idx);
++	if (ret)
++		return ret;
++
++	if (cs_idx >= MSEBI_MAX_CS)
++		return -EINVAL;
++
++	ret = of_property_read_u32_array(np, "renesas,msebi-cs-timing",
++					 value, MSEBI_NR_TIMING_REGS);
++	if (ret)
++		return ret;
++
++	/* set the timing */
++	writel(value[0], base + cs_idx * MSEBI_CS_STRIDE + MSEBI_CS_CYCLESIZE_REG);
++	writel(value[1], base + cs_idx * MSEBI_CS_STRIDE + MSEBI_CS_SETUPHOLD_REG);
++	writel(value[2], base + cs_idx * MSEBI_CS_STRIDE + MSEBI_CS_CONFIG_REG);
++
++	return 0;
++}
++
++static int __init msebi_parse_dt(struct platform_device *pdev,
++				void __iomem *base)
++{
++	struct device_node *child;
++	int ret, have_child = 0;
++	u32 cfg;
++
++	ret = of_property_read_u32(pdev->dev.of_node, "renesas,msebi-config", &cfg);
++	if (ret)
++		return ret;
++	writel(cfg, base + MSEBI_CONFIG_REG);
++
++	ret = of_property_read_u32(pdev->dev.of_node, "renesas,msebi-config-dirbuf", &cfg);
++	if (ret)
++		return ret;
++	writel(cfg, base + MSEBI_CONFIG_DIRBUF_REG);
++
++	for_each_child_of_node(pdev->dev.of_node, child) {
++		if (!child->name)
++			continue;
++
++		ret = msebi_timing_setup(child, base);
++		if (ret)
++			dev_warn(&pdev->dev, "%s set timing failed.\n",
++				child->full_name);
++		else
++			have_child = 1;
++	}
++
++	if (have_child)
++		ret = of_platform_populate(pdev->dev.of_node,
++				   of_default_bus_match_table,
++				   NULL, &pdev->dev);
++	if (ret)
++		dev_err(&pdev->dev, "%s fail to create devices.\n",
++			pdev->dev.of_node->full_name);
++	return ret;
++}
++
++static int __init msebi_probe(struct platform_device *pdev)
++{
++	struct resource *res;
++	struct clk *clk;
++	void __iomem *base;
++	int ret;
++
++	/* get the resource */
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	base = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(base))
++		return PTR_ERR(base);
++
++	/* get the clock */
++	clk = devm_clk_get(&pdev->dev, NULL);
++	if (IS_ERR(clk))
++		return PTR_ERR(clk);
++
++	ret = clk_prepare_enable(clk);
++	if (ret)
++		return ret;
++
++	/* parse the device node */
++	ret = msebi_parse_dt(pdev, base);
++	if (ret)
++		clk_disable_unprepare(clk);
++	else
++		dev_info(&pdev->dev, "Driver registered.\n");
++
++	return ret;
++}
++
++static struct platform_driver msebi_driver = {
++	.driver = {
++		.name		= "renesas-msebi",
++		.of_match_table	= msebi_id_table,
++	},
++};
++module_platform_driver_probe(msebi_driver, msebi_probe);
++
++MODULE_AUTHOR("Renesas Electronics Europe Ltd");
++MODULE_DESCRIPTION("RZ/N1 MSEBI Driver");
++MODULE_LICENSE("GPL");
+-- 
+2.7.4
+

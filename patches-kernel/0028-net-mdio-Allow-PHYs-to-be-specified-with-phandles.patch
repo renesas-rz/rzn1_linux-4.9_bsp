@@ -1,0 +1,54 @@
+From e7ef9e3869e18651fa1b769589fd329877aae8ab Mon Sep 17 00:00:00 2001
+From: Phil Edworthy <phil.edworthy@renesas.com>
+Date: Wed, 23 Mar 2016 13:18:54 +0000
+Subject: [PATCH] net: mdio: Allow PHYs to be specified with phandles
+
+Signed-off-by: Phil Edworthy <phil.edworthy@renesas.com>
+---
+ drivers/of/of_mdio.c | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 262281b..2ec6202 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -227,7 +227,13 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 
+ 	/* Loop over the child nodes and register a phy_device for each phy */
+ 	for_each_available_child_of_node(np, child) {
+-		addr = of_mdio_parse_addr(&mdio->dev, child);
++		struct device_node *phy_node;
++
++		phy_node = of_parse_phandle(child, "phy-handle", 0);
++		if (!phy_node)
++			phy_node = child;
++
++		addr = of_mdio_parse_addr(&mdio->dev, phy_node);
+ 		if (addr < 0) {
+ 			scanphys = true;
+ 			continue;
+@@ -244,6 +250,12 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 
+ 	/* auto scan for PHYs with empty reg property */
+ 	for_each_available_child_of_node(np, child) {
++		struct device_node *phy_node;
++
++		phy_node = of_parse_phandle(child, "phy-handle", 0);
++		if (!phy_node)
++			phy_node = child;
++
+ 		/* Skip PHYs with reg property set */
+ 		if (of_find_property(child, "reg", NULL))
+ 			continue;
+@@ -255,7 +267,7 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+ 
+ 			/* be noisy to encourage people to set reg property */
+ 			dev_info(&mdio->dev, "scan phy %s at address %i\n",
+-				 child->name, addr);
++				 phy_node->name, addr);
+ 
+ 			if (of_mdiobus_child_is_phy(child))
+ 				of_mdiobus_register_phy(mdio, child, addr);
+-- 
+2.7.4
+

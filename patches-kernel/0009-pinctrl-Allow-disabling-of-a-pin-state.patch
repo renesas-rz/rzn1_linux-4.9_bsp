@@ -1,0 +1,34 @@
+From 3721ddd3ce9bb965dec7407ea35db60c8d52ac92 Mon Sep 17 00:00:00 2001
+From: Michel Pollet <michel.pollet@bp.renesas.com>
+Date: Wed, 13 Jan 2016 13:38:52 +0000
+Subject: [PATCH] pinctrl: Allow disabling of a pin state
+
+Allow passing a NULL state to pinctrl_select_state to release any
+previous state, to allow peripherals who share pins, without having to
+hog some /other/ state
+
+Signed-off-by: Michel Pollet <michel.pollet@bp.renesas.com>
+---
+ drivers/pinctrl/core.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/pinctrl/core.c b/drivers/pinctrl/core.c
+index fb38e20..04983e7 100644
+--- a/drivers/pinctrl/core.c
++++ b/drivers/pinctrl/core.c
+@@ -1021,6 +1021,12 @@ int pinctrl_select_state(struct pinctrl *p, struct pinctrl_state *state)
+ 
+ 	p->state = NULL;
+ 
++	/* It is OK to pass NULL as parameter, if the peripheral just want to
++	 * release the pins, instead of setting another 'state' for them and
++	 * having to hoard others. */
++	if (!state)
++		return 0;
++
+ 	/* Apply all the settings for the new state */
+ 	list_for_each_entry(setting, &state->settings, node) {
+ 		switch (setting->type) {
+-- 
+2.7.4
+

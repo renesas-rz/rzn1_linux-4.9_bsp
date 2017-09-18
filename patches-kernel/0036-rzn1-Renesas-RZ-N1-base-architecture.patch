@@ -1,0 +1,429 @@
+From 444f87eecaa8de2334340963963fc73cd6143b57 Mon Sep 17 00:00:00 2001
+From: Michel Pollet <michel.pollet@bp.renesas.com>
+Date: Tue, 14 Jul 2015 10:08:10 +0100
+Subject: [PATCH] rzn1: Renesas RZ/N1 base architecture
+
+Base files for the RZ/N1 SoC
+
+Signed-off-by: Michel Pollet <michel.pollet@bp.renesas.com>
+---
+ arch/arm/Kconfig                  |   2 +
+ arch/arm/Makefile                 |   1 +
+ arch/arm/mach-rzn1/Kconfig        |  12 +++++
+ arch/arm/mach-rzn1/Makefile       |   8 +++
+ arch/arm/mach-rzn1/headsmp.S      |  68 +++++++++++++++++++++++
+ arch/arm/mach-rzn1/platsmp.c      | 110 ++++++++++++++++++++++++++++++++++++++
+ arch/arm/mach-rzn1/setup-rzn1.c   |  59 ++++++++++++++++++++
+ arch/arm/mach-rzn1/sysctrl-rzn1.c |  38 +++++++++++++
+ include/linux/sysctrl-rzn1.h      |  37 +++++++++++++
+ 9 files changed, 335 insertions(+)
+ create mode 100644 arch/arm/mach-rzn1/Kconfig
+ create mode 100644 arch/arm/mach-rzn1/Makefile
+ create mode 100644 arch/arm/mach-rzn1/headsmp.S
+ create mode 100644 arch/arm/mach-rzn1/platsmp.c
+ create mode 100644 arch/arm/mach-rzn1/setup-rzn1.c
+ create mode 100644 arch/arm/mach-rzn1/sysctrl-rzn1.c
+ create mode 100644 include/linux/sysctrl-rzn1.h
+
+diff --git a/arch/arm/Kconfig b/arch/arm/Kconfig
+index b5d529f..db06652 100644
+--- a/arch/arm/Kconfig
++++ b/arch/arm/Kconfig
+@@ -804,6 +804,8 @@ source "arch/arm/mach-realview/Kconfig"
+ 
+ source "arch/arm/mach-rockchip/Kconfig"
+ 
++source "arch/arm/mach-rzn1/Kconfig"
++
+ source "arch/arm/mach-sa1100/Kconfig"
+ 
+ source "arch/arm/mach-socfpga/Kconfig"
+diff --git a/arch/arm/Makefile b/arch/arm/Makefile
+index 6be9ee1..291bfa58 100644
+--- a/arch/arm/Makefile
++++ b/arch/arm/Makefile
+@@ -200,6 +200,7 @@ machine-$(CONFIG_ARCH_QCOM)		+= qcom
+ machine-$(CONFIG_ARCH_REALVIEW)		+= realview
+ machine-$(CONFIG_ARCH_ROCKCHIP)		+= rockchip
+ machine-$(CONFIG_ARCH_RPC)		+= rpc
++machine-$(CONFIG_ARCH_RZN1) 		+= rzn1
+ machine-$(CONFIG_ARCH_S3C24XX)		+= s3c24xx
+ machine-$(CONFIG_ARCH_S3C64XX)		+= s3c64xx
+ machine-$(CONFIG_ARCH_S5PV210)		+= s5pv210
+diff --git a/arch/arm/mach-rzn1/Kconfig b/arch/arm/mach-rzn1/Kconfig
+new file mode 100644
+index 0000000..6bb27e7
+--- /dev/null
++++ b/arch/arm/mach-rzn1/Kconfig
+@@ -0,0 +1,12 @@
++
++config ARCH_RZN1
++	bool "Renesas RZ/N1"
++	select ARM_AMBA
++	select USE_OF
++	select ARCH_WANT_OPTIONAL_GPIOLIB
++	select ARM_GIC
++	select CPU_V7
++	select USE_OF
++	select PINCTRL
++	select PINCTRL_RZN1
++	select HAVE_SMP
+diff --git a/arch/arm/mach-rzn1/Makefile b/arch/arm/mach-rzn1/Makefile
+new file mode 100644
+index 0000000..ef2f17e
+--- /dev/null
++++ b/arch/arm/mach-rzn1/Makefile
+@@ -0,0 +1,8 @@
++#
++# Makefile for the linux kernel.
++#
++
++ccflags-$(CONFIG_ARCH_MULTIPLATFORM) := -I$(srctree)/arch/arm/mach-rzn1/include
++
++obj-$(CONFIG_ARCH_RZN1)		+= setup-rzn1.o sysctrl-rzn1.o
++obj-$(CONFIG_SMP) += platsmp.o
+diff --git a/arch/arm/mach-rzn1/headsmp.S b/arch/arm/mach-rzn1/headsmp.S
+new file mode 100644
+index 0000000..c477116
+--- /dev/null
++++ b/arch/arm/mach-rzn1/headsmp.S
+@@ -0,0 +1,68 @@
++/*
++ * Copyright (C) 2014 Renesas Electronics Europe Limited
++ *
++ * Michel Pollet <michel.pollet@bp.renesas.com>, <buserror@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++#include <linux/linkage.h>
++#include <linux/init.h>
++#include <dt-bindings/soc/rzn1-sysctrl.h>
++#include <dt-bindings/soc/rzn1-memory-map.h>
++
++#define GIC_BASE 	(RZN1_GIC_BASE + 0x2000)
++#define BOOTADDR	(RZN1_SYSTEM_CTRL_BASE + RZN1_SYSCTRL_REG_BOOTADDR)
++#define BOOTADDR2		CONFIG_RZN1_SMP_ALT_BOOTADDR
++#define BOOTADDR2_CANARY	0x525a4e31
++/*
++ * RZ/N1 specific entry point for secondary CPUs. The second CPU enables
++ * interrupts for itself (in masked state), then loops on a wfi for the
++ * kernel to wake it up, have a look at the BOOTADDR for an address,
++ * picks it up (and clears BOOTADDR) then just branches out.
++ */
++ENTRY(rzn1_secondary_startup)
++
++	ldr	pc, =_reset 		@ reset vector
++	ldr	pc, =_undf		@ undef
++	ldr	pc, =_undf		@ svc
++	ldr	pc, =_undf		@ abort
++	ldr	pc, =_undf		@ irq
++	nop
++fiq:	b	fiq
++_undf:	b	_undf
++
++_reset:
++	mrc	p15, 0, r0, c0, c0, 5	@ get processor id
++	and	r0, r0, #15		@ What CPU am I?
++	bne	_cpu1
++
++	b 	park
++_cpu1:	@ they both go in park anyway
++park:
++	ldr 	r2, =BOOTADDR2_CANARY
++	ldr	r0, =BOOTADDR2		@ Check for canary in PEN2+4 location
++	add	r0, #4
++	ldr     r1, [r0]
++	cmp	r1, r2
++	ldr	r0, =BOOTADDR2
++	ldrne	r0, =BOOTADDR
++
++	mov	r3, #0
++	ldr 	r2, =GIC_BASE
++
++	mov 	r1, #1
++	str 	r1, [r2] 		@ set GICC_CTLR.Enable
++	mov 	r1, #255
++	str 	r1, [r2, #4] 		@ set GIC_PMR.Priority to 0xff
++	dsb
++
++pen:	wfi
++	ldr     r1, [r0]
++	tst     r1, r1
++	beq	pen
++	str	r3, [r0]		@ Clear BOOTADDR
++	bx	r1
++	.ltorg
++ENDPROC(rzn1_secondary_startup)
+diff --git a/arch/arm/mach-rzn1/platsmp.c b/arch/arm/mach-rzn1/platsmp.c
+new file mode 100644
+index 0000000..4ddcafc
+--- /dev/null
++++ b/arch/arm/mach-rzn1/platsmp.c
+@@ -0,0 +1,110 @@
++/*
++ * SMP support for Renesas RZ/N1
++ *
++ * Copyright (C) 2014 Renesas Electronics Europe Limited
++ *
++ * Michel Pollet <michel.pollet@bp.renesas.com>, <buserror@gmail.com>
++ *
++ * Based on code
++ *  Copyright (C) 2012-2013 Allwinner Ltd.
++ *
++ * This file is licensed under the terms of the GNU General Public
++ * License version 2.  This program is licensed "as is" without any
++ * warranty of any kind, whether express or implied.
++ */
++
++#include <linux/delay.h>
++#include <linux/init.h>
++#include <linux/io.h>
++#include <linux/memory.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
++#include <linux/smp.h>
++#include <asm/system_misc.h>
++
++#include <linux/smp.h>
++#include <linux/io.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
++#include <linux/regmap.h>
++#include <linux/mfd/syscon.h>
++#include <linux/sysctrl-rzn1.h>
++
++#include <linux/reset.h>
++#include <linux/cpu.h>
++#include <asm/cacheflush.h>
++#include <asm/cp15.h>
++#include <asm/smp_scu.h>
++#include <asm/smp_plat.h>
++#include <asm/mach/map.h>
++
++#define BOOTADDR2_CANARY	0x525a4e31
++
++static void __iomem *pen2_base;
++
++static DEFINE_SPINLOCK(cpu_lock);
++
++/* The alternate boot address for the second core can be overriden in the DT,
++ * typically this will happen if the bootloader decides to park the second
++ * core somewhere else than the fixed ALT_BOOTADDR address
++ */
++static void __init rzn1_smp_prepare_cpus(unsigned int max_cpus)
++{
++	u32 bootaddr = 0;
++	struct device_node *np = of_find_node_by_path("/chosen");
++
++	if (np)
++		of_property_read_u32(np, "rzn1,bootaddr", &bootaddr);
++
++	if (bootaddr &&
++		bootaddr != RZN1_SYSCTRL_REG_BOOTADDR &&
++		bootaddr != (RZN1_SYSTEM_CTRL_BASE+RZN1_SYSCTRL_REG_BOOTADDR)) {
++
++		pr_info("RZ/N1 CPU#2 boot address %08x\n", bootaddr);
++		pen2_base = ioremap(bootaddr, 8);
++
++		if (!pen2_base) {
++			pr_warn("Couldn't map RZ/N1 CPU#2 PEN2\n");
++			return;
++		}
++	} else {
++		pr_info("RZ/N1 CPU#2 boot address not specified - using SYSCTRL reg\n");
++	}
++}
++
++static int rzn1_smp_boot_secondary(unsigned int cpu,
++				    struct task_struct *idle)
++{
++	u32 t = (u32)virt_to_phys(secondary_startup);
++
++	/* Set CPU boot address */
++	if (pen2_base && (readl(pen2_base + 4) == BOOTADDR2_CANARY))
++		pr_info("RZ/N1 CPU#%d writing %08x to boot address\n", cpu, t);
++	else
++		pr_info("RZ/N1 CPU#%d writing %08x to SYSCTRL reg\n", cpu, t);
++
++	spin_lock(&cpu_lock);
++
++	/* Set CPU boot address */
++	if (pen2_base && (readl(pen2_base + 4) == BOOTADDR2_CANARY))
++		writel(virt_to_phys(secondary_startup), pen2_base);
++	else
++		rzn1_sysctrl_writel(virt_to_phys(secondary_startup),
++			RZN1_SYSCTRL_REG_BOOTADDR);
++
++	arch_send_wakeup_ipi_mask(cpumask_of(cpu));
++
++	/*
++	 * now the secondary core is starting up let it run its
++	 * calibrations, then wait for it to finish
++	 */
++	spin_unlock(&cpu_lock);
++
++	return 0;
++}
++
++struct smp_operations rzn1_smp_ops __initdata = {
++	.smp_prepare_cpus	= rzn1_smp_prepare_cpus,
++	.smp_boot_secondary	= rzn1_smp_boot_secondary,
++};
++CPU_METHOD_OF_DECLARE(rzn1_smp, "renesas,rzn1", &rzn1_smp_ops);
+diff --git a/arch/arm/mach-rzn1/setup-rzn1.c b/arch/arm/mach-rzn1/setup-rzn1.c
+new file mode 100644
+index 0000000..456f9cf
+--- /dev/null
++++ b/arch/arm/mach-rzn1/setup-rzn1.c
+@@ -0,0 +1,59 @@
++/*
++ * RZ/N1 processor support file (placeholder)
++ *
++ * Copyright (C) 2014 Renesas Electronics Europe Limited
++ *
++ * Michel Pollet <michel.pollet@bp.renesas.com>, <buserror@gmail.com>
++ *
++ * This file is licensed under the terms of the GNU General Public
++ * License version 2.  This program is licensed "as is" without any
++ * warranty of any kind, whether express or implied.
++ */
++
++#include <linux/kernel.h>
++#include <linux/of_platform.h>
++#include <asm/mach/arch.h>
++#include <linux/sysctrl-rzn1.h>
++
++extern struct smp_operations rzn1_smp_ops;
++
++/* TODO ? */
++void __init rzn1_add_dt_devices(void)
++{
++/*	printk("%s\n", __func__); */
++}
++
++/* TODO ? */
++void __init rzn1_init_early(void)
++{
++/*	printk("%s\n", __func__); */
++}
++
++static void rzn1_restart(enum reboot_mode mode, const char *cmd)
++{
++	printk("%s\n", __func__);
++
++	rzn1_sysctrl_writel(
++			rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_RSTEN) |
++			(1 << RZN1_SYSCTRL_REG_RSTEN_SWRST_EN) |
++				(1 << RZN1_SYSCTRL_REG_RSTEN_MRESET_EN),
++			RZN1_SYSCTRL_REG_RSTEN);
++	rzn1_sysctrl_writel(
++			rzn1_sysctrl_readl(RZN1_SYSCTRL_REG_RSTCTRL) |
++			(1 << RZN1_SYSCTRL_REG_RSTCTRL_SWRST_REQ),
++			RZN1_SYSCTRL_REG_RSTCTRL);
++}
++
++#ifdef CONFIG_USE_OF
++static const char *rzn1_boards_compat_dt[] __initdata = {
++	"renesas,rzn1",
++	NULL,
++};
++
++DT_MACHINE_START(rzn1_DT, "Renesas RZ/N1 (DT)")
++	.smp 		= smp_ops(rzn1_smp_ops),
++	.init_early	= rzn1_init_early,
++	.dt_compat	= rzn1_boards_compat_dt,
++	.restart	= rzn1_restart,
++MACHINE_END
++#endif /* CONFIG_USE_OF */
+diff --git a/arch/arm/mach-rzn1/sysctrl-rzn1.c b/arch/arm/mach-rzn1/sysctrl-rzn1.c
+new file mode 100644
+index 0000000..1e73cf4
+--- /dev/null
++++ b/arch/arm/mach-rzn1/sysctrl-rzn1.c
+@@ -0,0 +1,38 @@
++/*
++ * RZ/N1 sysctrl access API
++ *
++ * Copyright (C) 2014-2016 Renesas Electronics Europe Limited
++ *
++ * Michel Pollet <michel.pollet@bp.renesas.com>, <buserror@gmail.com>
++ *
++ * This file is licensed under the terms of the GNU General Public
++ * License version 2.  This program is licensed "as is" without any
++ * warranty of any kind, whether express or implied.
++ */
++
++#include <linux/kernel.h>
++#include <linux/sysctrl-rzn1.h>
++
++static void __iomem *sysctrl_base_addr;
++
++
++static void __iomem *watchdog_base_addr;
++
++void __init rzn1_sysctrl_init(void)
++{
++	if (sysctrl_base_addr)
++		return;
++	sysctrl_base_addr = ioremap(RZN1_SYSTEM_CTRL_BASE,
++					RZN1_SYSTEM_CTRL_SIZE);
++	BUG_ON(!sysctrl_base_addr);
++
++	watchdog_base_addr = ioremap(RZN1_WATCHDOG0_BASE,
++					3 * RZN1_WATCHDOG0_SIZE);
++	BUG_ON(!watchdog_base_addr);
++}
++
++void __iomem *rzn1_sysctrl_base(void)
++{
++	BUG_ON(!sysctrl_base_addr);
++	return sysctrl_base_addr;
++}
+diff --git a/include/linux/sysctrl-rzn1.h b/include/linux/sysctrl-rzn1.h
+new file mode 100644
+index 0000000..3d9c8d2
+--- /dev/null
++++ b/include/linux/sysctrl-rzn1.h
+@@ -0,0 +1,37 @@
++/*
++ * RZ/N1 sysctrl access API
++ *
++ * Copyright (C) 2014-2016 Renesas Electronics Europe Limited
++ *
++ * Michel Pollet <michel.pollet@bp.renesas.com>, <buserror@gmail.com>
++ *
++ * This file is licensed under the terms of the GNU General Public
++ * License version 2.  This program is licensed "as is" without any
++ * warranty of any kind, whether express or implied.
++ */
++
++#ifndef __SYSCTRL_RZN1__
++#define __SYSCTRL_RZN1__
++
++#include <linux/io.h>
++#include <dt-bindings/soc/rzn1-memory-map.h>
++#include <dt-bindings/soc/rzn1-sysctrl.h>
++
++/* Good policy for drivers to call this, even tho it's only needed once */
++void __init rzn1_sysctrl_init(void);
++/* Get the base address for the sysctrl block. Use sparingly (clock drivers) */
++void __iomem *rzn1_sysctrl_base(void);
++
++static inline u32 rzn1_sysctrl_readl(u32 reg)
++{
++	BUG_ON(reg >= RZN1_SYSTEM_CTRL_SIZE);
++	return readl(rzn1_sysctrl_base() + reg);
++}
++
++static inline void rzn1_sysctrl_writel(u32 value, u32 reg)
++{
++	BUG_ON(reg >= RZN1_SYSTEM_CTRL_SIZE);
++	writel(value, rzn1_sysctrl_base() + reg);
++}
++
++#endif /* __SYSCTRL_RZN1__ */
+-- 
+2.7.4
+
