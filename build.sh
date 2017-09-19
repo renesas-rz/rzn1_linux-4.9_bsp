@@ -53,7 +53,7 @@ function check_for_toolchain {
   if [ ! -e $OUTDIR/br_version.txt ] ; then
     banner_red "Toolchain not installed yet."
     echo -e "Buildroot will download and install the toolchain."
-    echo -e "Plesae run \"./build.sh buildroot\" first and select the toolchain you would like to use."
+    echo -e "Please run \"./build.sh buildroot\" first and select the toolchain you would like to use."
     exit
   fi
 }
@@ -916,4 +916,3 @@ if [ "$1" == "update" ] ; then
     exit
   fi
 fi
-
