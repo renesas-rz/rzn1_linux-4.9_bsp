@@ -58,8 +58,9 @@ default:
 	$(CROSS_COMPILE)gcc $(STATIC) $(CFLAGS) --sysroot=$(SYSROOT) -o $(app) $(app).c $(LIBS)
 
 install:
-	@# Copy to Buildroot overlay directory (only for Renesas BSP)
-	cp $(app) $(BUILDROOT_DIR)/output/rootfs_overlay/root/bin
+	@# Copy to Buildroot overlay directory (only for Renesas BSP users)
+	mkdir -p $(BUILDROOT_DIR)/output/rootfs_overlay/usr/bin
+	cp $(app) $(BUILDROOT_DIR)/output/rootfs_overlay/usr/bin
 	@echo ''
 	@echo 'Please run Buildroot again to repackage the rootfs image.'
 	@echo 'For example:'

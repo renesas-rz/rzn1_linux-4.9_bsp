@@ -18,10 +18,9 @@ Step 1. Set up your build environment
 
 Step 2. Build your application and add it to your file system.
 
- * The first step defined and environment variable BUILDROOT_DIR
+ * The first step is to define an environment variable BUILDROOT_DIR
    that the Makefile in this directory can use to then figure out
-   where the toolchain is and where the sysroot (shared libraries)
-   are.
+   where the toolchain is and where the sysroot (shared libraries)  are.
    Enter the following commands:
 
 	$ cd hello_world

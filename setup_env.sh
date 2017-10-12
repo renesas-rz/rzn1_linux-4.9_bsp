@@ -2,8 +2,7 @@
 # Will be run automatically by build.sh
 # Please edit the settings below if you don't want to use the defaults
 
-# When calling this script, an enviroment variable 'ROOTDIR' must be set
-# to contain a full path.
+# When calling this script, an enviroment variable 'ROOTDIR' must be set for a full path.
 if [ "$ROOTDIR" == "" ]; then
   echo -e '
 ERROR: You must set ROOTDIR before calling this file.
@@ -57,7 +56,7 @@ fi
 # with current directory printed out on the line above
 #PS1="dir: \w\n\[\e[1;31m\](rza1_bsp)$\[\e[00m\] "
 
-# Change prompt to (rza1_bsp) with RED text
+# Change prompt to (rzn1_bsp) with RED text
 # with current directory printed out on the line above in ORANGE text
 PS1="\[\e[33m\]dir: \w\n\[\e[1;31m\](rzn1_bsp)$\[\e[00m\] "
 
