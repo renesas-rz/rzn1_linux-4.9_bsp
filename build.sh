@@ -611,7 +611,7 @@ if [ "$1" == "buildroot" ]  || [ "$1" == "b" ] ; then
     echo "What version of Buildroot do you want to use?"
     echo "1. buildroot-2016.08"
     echo "2. buildroot-2017.02 (Long Term Support)"
-    echo "3. buildroot-2018.11. Placeholder for test. (Not yet tested by REA.) May need patches?"
+    echo "3. buildroot-2018.11 Not yet tested by REA. May need patches?"
     echo -n "(select number)=> "
     read ANSWER
     if [ "$ANSWER" == "1" ] ; then
@@ -619,7 +619,7 @@ if [ "$1" == "buildroot" ]  || [ "$1" == "b" ] ; then
     elif [ "$ANSWER" == "2" ] ; then
       echo "export BR_VERSION=2017.02" > br_version.txt
     elif [ "$ANSWER" == "3" ] ; then
-      echo "export BR_VERSION=2018.11.1" > br_version.txt
+      echo "export BR_VERSION=2018.11" > br_version.txt
     else
       echo "ERROR: \"$ANSWER\" is an invalid selection!"
       exit
