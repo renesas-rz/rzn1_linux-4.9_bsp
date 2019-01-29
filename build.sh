@@ -12,7 +12,7 @@
 #
 # ==========================================================================
 
-# Function: usage
+# Function: User usage
 function usage {
   echo -ne "\033[1;31m" # RED TEXT
   echo -e "\nWhat do you want to build?"

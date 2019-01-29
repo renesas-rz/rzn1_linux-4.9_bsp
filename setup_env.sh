@@ -10,10 +10,13 @@ ERROR: You must set ROOTDIR before calling this file.
    you could pass it on the same line like:
 
       $ export ROOTDIR=$(pwd) ; source ./setup_env.sh
-
 '
   exit
 fi
+
+echo -e 'CROSS_COMPILE =' ${CROSS_COMPILE}
+#Or type $> ${CROSS_COMPILE}gcc
+#on the command line
 
 # Settings
 export OUTDIR=${ROOTDIR}/output
@@ -35,6 +38,7 @@ if [ -e $OUTDIR/buildroot-$BR_VERSION/output/host ] ; then
   # set toolchain prefix and add to path
   cd $OUTDIR/buildroot-$BR_VERSION/output/host/usr/bin
   export CROSS_COMPILE=`ls *gnueabi*-gcc | sed 's/gcc//'`
+  echo -e 'CROSS_COMPILE =' ${CROSS_COMPILE}
   export PATH=`pwd`:$PATH
   cd -
   export ARCH=arm
