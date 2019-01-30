@@ -450,18 +450,13 @@ if [ "$1" == "u-boot" ] || [ "$1" == "u" ] ; then
 
   cd $OUTDIR
 
-  # ==========================================================================
-  # Need to merge this new section (as of 1.3.1 RZ/N DVD) into more refined build 
-  # below. See CH. HISTORY.
-  # ==========================================================================
   banner_yellow Observe!
   echo -e "This is for the 1.3.1 DVD and higher revisions and follows RZN1-U-Boot-User-Manual"
   echo -e "chapters U-Boot Setup and Build."
   echo -e "New u-boot branch is at https://github.com/renesas-rz/rzn1_u-boot.git"
   banner_yellow "Building u-boot"
+  
 
-  
-  
   # install u-boot
   if [ ! -e u-boot ] ; then
 
