@@ -6,10 +6,8 @@
 #
 # CS: Added repo https://github.com/renesas-rz/rzn1_linux.git to kernel sections build and update.
 # 
-# CS, 10/31/18: Changed U-Boot build section to be acc. to 1.3.1 U-Boot manual. Need to merge this 
-# new section into Chris's more refined build right below it later, and perhaps add the spkg-utility 
-# converter.
-#
+# CS, 10/31/18: Changed U-Boot build section to be acc. to 1.3.1 U-Boot manual. 
+#   
 # ==========================================================================
 
 # Function: User usage
@@ -425,6 +423,9 @@ fi
 
 ###############################################################################
 # build u-boot
+#
+# Clones from https://github.com/renesas-rz/rzn1_u-boot.git
+# Merges and builds according to DVD 1.3.1 release.
 ###############################################################################
 if [ "$1" == "u-boot" ] || [ "$1" == "u" ] ; then
   check_for_toolchain
@@ -450,7 +451,7 @@ if [ "$1" == "u-boot" ] || [ "$1" == "u" ] ; then
   cd $OUTDIR
 
   # ==========================================================================
-  # Need to merge this new section for 1.3.1 DVD into more refined build right 
+  # Need to merge this new section (as of 1.3.1 RZ/N DVD) into more refined build 
   # below. See CH. HISTORY.
   # ==========================================================================
   banner_yellow Observe!
@@ -458,7 +459,6 @@ if [ "$1" == "u-boot" ] || [ "$1" == "u" ] ; then
   echo -e "chapters U-Boot Setup and Build."
   echo -e "New u-boot branch is at https://github.com/renesas-rz/rzn1_u-boot.git"
   banner_yellow "Building u-boot"
-
 
   
   
@@ -503,6 +503,7 @@ if [ "$1" == "u-boot" ] || [ "$1" == "u" ] ; then
   #make rzn1s-io-link_config
   # Setup configuration for Renesas RZ/N1L-DB Board
   #make rzn1l-db_config
+  
   # Build U-Boot
   if [ "$2" == "" ] ;then
 
@@ -529,40 +530,10 @@ if [ "$1" == "u-boot" ] || [ "$1" == "u" ] ; then
 
   exit  
   
-  # ==========================================================================
-  # The rest of this u-boot section is the old but more sophisticated method 
-  # for 1.3 DVD and earlier.
-  # ==========================================================================
-
-  # install u-boot-2017.01
-  if [ ! -e u-boot-2017.01 ] ; then
-
-    #Download u-boot-2017.01.tar.bz2
-    if [ ! -e u-boot-2017.01.tar.bz2 ] ;then
-      wget ftp://ftp.denx.de/pub/u-boot/u-boot-2017.01.tar.bz2
-    fi
-    echo "extracting u-boot..."
-    tar -xf u-boot-2017.01.tar.bz2
-
-    CHECK=`which git`
-    if [ "$CHECK" == "" ] ; then
-      banner_red "git is not installed"
-      echo -e "You need git in order to download the kernel"
-      echo -e "In Ubuntu, you can install it by running:\n\tsudo apt-get install git\n"
-      echo -e "Exiting build script.\n"
-      exit
-    fi
-  fi
-
-  cd u-boot-2017.01
-
-  # Patch u-boot
-  if [ ! -e include/configs/rzn1d400-db.h ] ;then
-    # Combine all the patches, then patch at once
-    cat $ROOTDIR/patches-uboot/* > /tmp/uboot_patches.patch
-    patch -p1 -i /tmp/uboot_patches.patch
-  fi
-
+  # ====================================================================
+  # Rest of u-boot section below not used but kept in case needed for later(!)
+  # ====================================================================
+  
   # Configure u-boot
   if [ ! -e .config ] ;then
     make ${UBOOTCONFIG}
@@ -979,10 +950,10 @@ if [ "$1" == "update" ] ; then
       git clone -b rzn1-stable https://github.com/renesas-rz/rzn1_linux.git
     else
       cd output/rzn1_linux
-      git stash                     # <== userâ€™s changes saved
+      git stash                     # <== user's changes saved.
       git checkout rzn1-stable
-      git pull                      # <== REA updates
-      git stash pop                 # <== userâ€™s changes reinserted
+      git pull                      # <== REA updates.
+      git stash pop                 # <== userâ€™s changes reinserted.
     fi
     exit
   fi
