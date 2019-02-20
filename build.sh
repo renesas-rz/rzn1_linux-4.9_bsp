@@ -79,27 +79,26 @@ function save_confiRZ-N1D-System-Setup-Tutorial.pdfg {
 ###############################################################################
 # boards
 ###############################################################################
-BRD_NAMES[0]=rzn1d ; BRD_DESC[0]="RZ/N1D RSK"
-UBOOTCONFIG[0]=rzn1d400-db_config
- UBOOTBOARD[0]=TARGET_RENESAS_RZN1D400_DB
+   BRD_NAMES[0]=rzn1d ; BRD_DESC[0]="RZ/N1D RSK"
+ UBOOTCONFIG[0]=rzn1d400-db_config
+  UBOOTBOARD[0]=TARGET_RENESAS_RZN1D400_DB
 KERNELCONFIG[0]=rzn1_defconfig
 
-BRD_NAMES[1]=rzn1s ; BRD_DESC[1]="RZ/N1S RSK"
-UBOOTCONFIG[1]=rzn1s324-db_config
- UBOOTBOARD[1]=TARGET_RENESAS_RZN1S324_DB
+   BRD_NAMES[1]=rzn1s ; BRD_DESC[1]="RZ/N1S RSK"
+ UBOOTCONFIG[1]=rzn1s324-db_config
+  UBOOTBOARD[1]=TARGET_RENESAS_RZN1S324_DB
 KERNELCONFIG[1]=rzn1_defconfig
 
 #Defaults
-BOARD=${BRD_NAMES[0]}
-UBOOTCONFIG=${UBOOTCONFIG[0]}
-UBOOTBOARD=${UBOOTBOARD[0]}
+       BOARD=${BRD_NAMES[0]}
+ UBOOTCONFIG=${UBOOTCONFIG[0]}
+  UBOOTBOARD=${UBOOTBOARD[0]}
 KERNELCONFIG=${KERNELCONFIG[0]}
 
 
 ###############################################################################
 # script start
 ###############################################################################
-
 # Save current directory
 ROOTDIR=`pwd`
 
@@ -342,7 +341,7 @@ if [ "$1" == "kernel" ] || [ "$1" == "k" ] ; then
 
   cd rzn1_linux
   
-  # Do the build operation
+  # build
   IMG_BUILD=0
   XIPCHECK=`grep -s CONFIG_XIP_KERNEL=y .config`
 
@@ -927,11 +926,11 @@ if [ "$1" == "update" ] ; then
     echo -e ""
     echo -e "  ./build.sh update b   # updates bsp build scripts"
     echo -e "  ./build.sh update u   # updates uboot source"
-    echo -e "  ./build.sh update k   # updates kernel source "
+    echo -e "  ./build.sh update k   # updates kernel source"
     echo -e ""
     exit
   fi
-
+ 
   if [ "$2" == "b" ] ; then
     git stash
     git pull
@@ -939,26 +938,28 @@ if [ "$1" == "update" ] ; then
     exit
   fi
 
+  cd $OUTDIR
+
   if [ "$2" == "k" ] ; then
-    if [ ! -e output/rzn1_linux ] ; then
-      cd output
+    if [ ! -e rzn1_linux ] ; then
       git clone -b rzn1-stable https://github.com/renesas-rz/rzn1_linux.git
     else
-      cd output/rzn1_linux
-      git stash                     # <== user's changes saved.
+      cd rzn1_linux
+      git stash                     # <== user changes saved.
       git checkout rzn1-stable
-      git pull                      # <== REA updates.
-      git stash pop                 # <== userâ€™s changes reinserted.
+      git pull                      # <== latest updates (ree).
+      git stash pop                 # <== user changes reinserted.
     fi
     exit
   fi
   
   if [ "$2" == "u" ] ; then
-    if [ ! -e output/u-boot-2017.05 ] ; then
-      cd output
-      git clone https://github.com/renesas-rz/rza_u-boot-2017.05.git u-boot-2017.05
+    if [ ! -e u-boot ] ; then
+      #Download u-boot
+      git clone http://git.denx.de/u-boot.git
+      echo "cloning from git.denx.de/u-boot.git..."
     else
-      cd output/u-boot-2017.05
+      cd u-boot
       git stash
       git checkout master
       git pull

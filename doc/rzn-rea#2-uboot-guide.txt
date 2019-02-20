@@ -24,7 +24,7 @@ Flush cache
 >sync
 >cd -
 Remove from PC ==> to RZ/N board.
-OBSERVE: Set bootargs lie this to test.
+OBSERVE: Set bootargs like this to test.
 =>setenv bootargs "console=ttyS0,115200 earlyprintk debug root=/dev/mmcblk0p1 rootwait clk_ignore_unused"
 Tested SD cards: SanDisk 2 GB, GB, 16 GB.
 
@@ -46,7 +46,6 @@ USE/OVERRIDE it by doing this at u-boot prompt:
 =>sf read 0x8ffe0000 b0000 20000
 =>fdt addr 0x8ffe0000
 =>fdt list   [To see current fdt chosen bootargs, or just   =>fdt print /chosen  ]
-Now set the bootargs for FDT to use as chosen
 =>setenv bootargs "console=ttyS0,115200 earlyprintk debug root=/dev/mmcblk0p1 rootwait clk_ignore_unused"
 or
 =>setenv bootargs "console=ttyS,115200 root=/dev/mmcblk0p1 rootwait init=bin/sh"
@@ -75,6 +74,7 @@ Load the DTB from an SD card, located in the /boot folder.
 Load kernel:
 =>ext4load mmc 0:1 0x80008000 /boot/uImage_goalctc_1.3.bin
 
+
 Load and run CM3 executable, e.g. GOAL 
 ====================================================
 To build code see rzn-univ-build-guide.txt.
@@ -82,6 +82,7 @@ Download to QSPI the CM3 image.
 in U-Boot:
 => dfu 
 PC
+- - - Linux - - -
 >sudo dfu-util -a 'sf_cm3' -D ./executable_filename
 You may need to do 
 >chown username ./executable_file
@@ -91,11 +92,16 @@ If dfu-util fails on host:
 - Are you sudo?
 - Using Virtual Linux? You must attach the enumerated Renesas USB download driver to the virtual linux instead of Windows.
 
+- - - Windows - - -
+>dfu-util-static -a 'sf_cm3' -D './executable_file'
+
+U-Boot:
 Add <&& rzn1_start_cm3> to u-boot’s bootcmd, right after command to read the cm3 image to RAM, e.g:
-=>setenv bootcmd "sf probe && sf read 0x4000000 d0000 80000 && rzn1_start_cm3 && sleep 4 && sf read 0x8ffe0000 b0000 20000 && fdt addr 0x8ffe0000 && fdt chosen && sf read 0x80008000 1d0000 f00000 && bootm 0x80008000 - 0x8ffe0000"
+=>setenv bootcmd "sf probe && sf read 0x4000000 d0000 80000 && rzn1_start_cm3 && sleep 8 && sf read 0x8ffe0000 b0000 20000 && fdt addr 0x8ffe0000 && fdt chosen && sf read 0x80008000 1d0000 f00000 && bootm 0x80008000 - 0x8ffe0000"
 or without fdt chosen
-=>setenv bootcmd "sf probe && sf read 0x4000000 d0000 80000 && rzn1_start_cm3 && sleep 4 && sf read 0x8ffe0000 b0000 20000 && sf read 0x80008000 1d0000 f00000 && bootm 0x80008000 - 0x8ffe0000"
+=>setenv bootcmd "sf probe && sf read 0x4000000 d0000 80000 && rzn1_start_cm3 && sleep 8 && sf read 0x8ffe0000 b0000 20000 && sf read 0x80008000 1d0000 f00000 && bootm 0x80008000 - 0x8ffe0000"
 The CM3 binary should now execute right after <boot> is issued from U-boot. And you should see CC_xxx traces from the CM3 output.
+
 
 COMMENTS on bootcmd
 ---------------------------------
@@ -104,15 +110,6 @@ sleep 4			       		           ==> Wait for 4 seconds
 sf read 0x8ffe0000 b0000 20000				==>  Read 0x20000 (all 128 k) bytes of DTB area from QSPI @ b0000 and load to SRAM at 0x8ffe0000.
 sf read 0x80008000 1d0000 f00000			==> Read Kernel @ 1d0000 and load in DDR.
 bootm 0x80008000 - 0x8ffe0000				==> Boot kernel now at 80008000.    ]
-
-
-
-Latest bootargs / bootcmd
-====================================================
-setenv bootargs "console=ttyS0,115200 earlyprintk debug root=/dev/mmcblk0p1 rootwait clk_ignore_unused"
-setenv bootcmd "sf probe && sf read 0x4000000 d0000 80000 && rzn1_start_cm3 && sleep 8 && sf read 0x8ffe0000 b0000 20000 && fdt addr 0x8ffe0000 && fdt chosen && sf read 0x80008000 1d0000 f00000 && bootm 0x80008000 - 0x8ffe0000"
-setenv bootcmd "mw 0x04000004 1 && rzn1_start_cm3 && sleep 5 && sf probe && sf read 0x8ffe0000 b0000 20000 && sf read 0x80008000 1d0000 600000 && bootm 0x80008000 - 0x8ffe0000"
-
 
 
 Using the IAR I-Jet to debug a CM3 project from Windows
@@ -132,7 +129,7 @@ Compile [F7], Download and Debug [Ctrl+D].
 - To setup/enable the CM3 core for the debugger, and run the CM3 core, and add a sleep period during which we can load and start the CM3 binary via the IAR debugger.
 we must add 
 "mw 0x04000004 1 && rzn1_start_cm3 && sleep X":
-=> setenv bootcmd "mw 0x04000004 1 && rzn1_start_cm3 && sleep 5 && sf probe && sf read 0x8ffe0000 b0000 20000 && sf read 0x80008000 1d0000 600000 && bootm 0x80008000 - 0x8ffe0000"
+=> setenv bootcmd "mw 0x04000004 1 && rzn1_start_cm3 && sleep 8 && sf probe && sf read 0x8ffe0000 b0000 20000 && sf read 0x80008000 1d0000 600000 && bootm 0x80008000 - 0x8ffe0000"
 => boot
 In IAR-EW; Download and Debug [Ctrl+D] before the sleep expires)
 
@@ -162,7 +159,6 @@ If th host says "sz: skipped: <filename>" then the problem is either
 - You need be sudo
 - File already exists at target
 - File system (SD) is write protected or broken
-
 
 
 ThreadX
