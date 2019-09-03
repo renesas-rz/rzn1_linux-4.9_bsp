@@ -68,7 +68,7 @@ function check_for_toolchain {
 }
 
 # Save current config settings to file
-function save_confiRZ-N1D-System-Setup-Tutorial.pdfg {
+function save_config {
   echo "BOARD=$BOARD" > output/config.txt
   echo "UBOOTCONFIG=$UBOOTCONFIG" >> output/config.txt
   echo "UBOOTBOARD=$UBOOTBOARD" >> output/config.txt
